@@ -1,7 +1,8 @@
 import Groq from "groq-sdk";
+import Constants from "expo-constants";
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: Constants.expoConfig.extra.groqApiKey,
   dangerouslyAllowBrowser: true,
 });
 
