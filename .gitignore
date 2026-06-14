@@ -43,3 +43,4 @@ yarn-error.*
 #Evnironment variables
 .env
 
+secrets.js

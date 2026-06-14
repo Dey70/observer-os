@@ -1,10 +1,26 @@
-import Groq from "groq-sdk";
-import Constants from "expo-constants";
+import { GROQ_API_KEY } from "../../secrets";
 
-const groq = new Groq({
-  apiKey: Constants.expoConfig.extra.groqApiKey,
-  dangerouslyAllowBrowser: true,
-});
+const askGroq = async (messages) => {
+  const response = await fetch(
+    "https://api.groq.com/openai/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages,
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    },
+  );
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+};
 
 export const askCoach = async (userMessage, recentLogs, recentSessions) => {
   const logsContext =
@@ -51,15 +67,8 @@ ${sessionsContext}
 
 Always ground your responses in his actual data. If data is missing, say so and ask him to log more. Keep responses concise and actionable. Never give generic fitness advice.`;
 
-  const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
-    ],
-    max_tokens: 500,
-    temperature: 0.7,
-  });
-
-  return response.choices[0].message.content;
+  return await askGroq([
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userMessage },
+  ]);
 };
