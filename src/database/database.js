@@ -54,10 +54,38 @@ export const saveDailyLog = (data, callback) => {
   }
 };
 
+export const saveSession = (data, callback) => {
+  try {
+    db.runSync(
+      `INSERT INTO sessions 
+        (date, type, duration, notes, rpe)
+        VALUES (?, ?, ?, ?, ?)`,
+      [data.date, data.type, data.duration, data.notes, data.rpe],
+    );
+    callback(true);
+  } catch (error) {
+    console.log(error);
+    callback(false);
+  }
+};
+
 export const getRecentLogs = (days, callback) => {
   try {
     const rows = db.getAllSync(
       `SELECT * FROM daily_logs ORDER BY date DESC LIMIT ?`,
+      [days],
+    );
+    callback(rows);
+  } catch (error) {
+    console.log(error);
+    callback([]);
+  }
+};
+
+export const getRecentSessions = (days, callback) => {
+  try {
+    const rows = db.getAllSync(
+      `SELECT * FROM sessions ORDER BY date DESC LIMIT ?`,
       [days],
     );
     callback(rows);
