@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { saveDailyLog } from "../database/database";
 
-const SliderRow = ({ label, value, setValue, min = 1, max = 10 }) => {
+const SliderRow = ({ label, value, setValue }) => {
   return (
     <View style={styles.sliderRow}>
       <View style={styles.sliderHeader}>
@@ -18,7 +18,7 @@ const SliderRow = ({ label, value, setValue, min = 1, max = 10 }) => {
         <Text style={styles.sliderValue}>{value}/10</Text>
       </View>
       <View style={styles.dotsContainer}>
-        {Array.from({ length: max }, (_, i) => i + 1).map((num) => (
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
           <TouchableOpacity
             key={num}
             onPress={() => setValue(num)}
@@ -34,6 +34,32 @@ const SliderRow = ({ label, value, setValue, min = 1, max = 10 }) => {
   );
 };
 
+const ReadinessCard = ({ score }) => {
+  const color = score >= 8 ? "#6ee7b7" : score >= 5 ? "#fcd34d" : "#ef4444";
+  const label =
+    score >= 8
+      ? "Ready to Push"
+      : score >= 5
+        ? "Moderate — Train Smart"
+        : "Low — Prioritize Recovery";
+  const emoji = score >= 8 ? "🟢" : score >= 5 ? "🟡" : "🔴";
+
+  return (
+    <View style={[styles.readinessCard, { borderColor: color }]}>
+      <Text style={styles.readinessTitle}>Readiness Score</Text>
+      <View style={styles.readinessRow}>
+        <Text style={[styles.readinessScore, { color }]}>
+          {score.toFixed(1)}
+        </Text>
+        <Text style={styles.readinessMax}>/10</Text>
+      </View>
+      <Text style={styles.readinessLabel}>
+        {emoji} {label}
+      </Text>
+    </View>
+  );
+};
+
 export default function DailyCheckin() {
   const [sleepHours, setSleepHours] = useState("7");
   const [sleepQuality, setSleepQuality] = useState(7);
@@ -43,6 +69,13 @@ export default function DailyCheckin() {
   const [energy, setEnergy] = useState(7);
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
+
+  const readinessScore =
+    sleepQuality * 0.3 +
+    mood * 0.2 +
+    energy * 0.2 +
+    (10 - soreness) * 0.15 +
+    (10 - fatigue) * 0.15;
 
   const handleSave = () => {
     const today = new Date().toISOString().split("T")[0];
@@ -60,7 +93,10 @@ export default function DailyCheckin() {
     saveDailyLog(data, (success) => {
       if (success) {
         setSaved(true);
-        Alert.alert("Logged", "Your check-in has been saved.");
+        Alert.alert(
+          "Check-in Saved ✓",
+          `Your readiness score today is ${readinessScore.toFixed(1)}/10`,
+        );
       } else {
         Alert.alert("Error", "Something went wrong. Try again.");
       }
@@ -72,6 +108,10 @@ export default function DailyCheckin() {
       <Text style={styles.heading}>Morning Check-in</Text>
       <Text style={styles.date}>{new Date().toDateString()}</Text>
 
+      {/* Live Readiness Score */}
+      <ReadinessCard score={readinessScore} />
+
+      {/* Sleep Duration */}
       <View style={styles.card}>
         <Text style={styles.cardLabel}>Sleep Duration</Text>
         <View style={styles.sleepInputRow}>
@@ -86,6 +126,7 @@ export default function DailyCheckin() {
         </View>
       </View>
 
+      {/* Sliders */}
       <View style={styles.card}>
         <SliderRow
           label="Sleep Quality"
@@ -98,6 +139,7 @@ export default function DailyCheckin() {
         <SliderRow label="Fatigue" value={fatigue} setValue={setFatigue} />
       </View>
 
+      {/* Notes */}
       <View style={styles.card}>
         <Text style={styles.cardLabel}>Notes (optional)</Text>
         <TextInput
@@ -115,7 +157,7 @@ export default function DailyCheckin() {
         style={[styles.saveButton, saved && styles.saveButtonDone]}
         onPress={handleSave}
       >
-        <Text style={styles.saveButtonText}>
+        <Text style={[styles.saveButtonText, saved && { color: "#ffffff" }]}>
           {saved ? "✓ Saved" : "Save Check-in"}
         </Text>
       </TouchableOpacity>
@@ -124,26 +166,42 @@ export default function DailyCheckin() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0a0a0a",
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
+  container: { flex: 1, backgroundColor: "#0a0a0a" },
+  content: { padding: 20, paddingBottom: 40 },
   heading: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#ffffff",
     marginTop: 20,
   },
-  date: {
-    fontSize: 13,
-    color: "#555",
-    marginTop: 4,
-    marginBottom: 24,
+  date: { fontSize: 13, color: "#555", marginTop: 4, marginBottom: 24 },
+  readinessCard: {
+    backgroundColor: "#141414",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1.5,
   },
+  readinessTitle: {
+    fontSize: 13,
+    color: "#666",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  readinessRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 6,
+  },
+  readinessScore: { fontSize: 48, fontWeight: "bold" },
+  readinessMax: {
+    fontSize: 18,
+    color: "#555",
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  readinessLabel: { fontSize: 14, color: "#888" },
   card: {
     backgroundColor: "#141414",
     borderRadius: 16,
@@ -157,59 +215,22 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1,
   },
-  sleepInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  sleepInput: {
-    fontSize: 40,
-    fontWeight: "bold",
-    color: "#ffffff",
-    width: 80,
-  },
-  sleepUnit: {
-    fontSize: 16,
-    color: "#555",
-    marginLeft: 8,
-  },
-  sliderRow: {
-    marginBottom: 20,
-  },
+  sleepInputRow: { flexDirection: "row", alignItems: "center" },
+  sleepInput: { fontSize: 40, fontWeight: "bold", color: "#ffffff", width: 80 },
+  sleepUnit: { fontSize: 16, color: "#555", marginLeft: 8 },
+  sliderRow: { marginBottom: 20 },
   sliderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  sliderLabel: {
-    fontSize: 15,
-    color: "#cccccc",
-  },
-  sliderValue: {
-    fontSize: 15,
-    color: "#ffffff",
-    fontWeight: "bold",
-  },
-  dotsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  dot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#222",
-  },
-  dotActive: {
-    backgroundColor: "#333",
-  },
-  dotSelected: {
-    backgroundColor: "#ffffff",
-  },
-  notesInput: {
-    color: "#ffffff",
-    fontSize: 15,
-    lineHeight: 22,
-  },
+  sliderLabel: { fontSize: 15, color: "#cccccc" },
+  sliderValue: { fontSize: 15, color: "#ffffff", fontWeight: "bold" },
+  dotsContainer: { flexDirection: "row", justifyContent: "space-between" },
+  dot: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#222" },
+  dotActive: { backgroundColor: "#333" },
+  dotSelected: { backgroundColor: "#ffffff" },
+  notesInput: { color: "#ffffff", fontSize: 15, lineHeight: 22 },
   saveButton: {
     backgroundColor: "#ffffff",
     borderRadius: 14,
@@ -222,9 +243,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#333",
   },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#000000",
-  },
+  saveButtonText: { fontSize: 16, fontWeight: "bold", color: "#000000" },
 });
