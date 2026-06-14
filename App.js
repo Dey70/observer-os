@@ -31,9 +31,7 @@ export default function App() {
           },
           tabBarActiveTintColor: "#ffffff",
           tabBarInactiveTintColor: "#444444",
-          tabBarLabelStyle: {
-            fontSize: 11,
-          },
+          tabBarLabelStyle: { fontSize: 11 },
         }}
       >
         <Tab.Screen
