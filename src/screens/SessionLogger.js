@@ -12,74 +12,116 @@ import { saveSession } from "../database/database";
 
 const SESSION_TYPES = ["Run", "Lift", "Study"];
 
+const EFFORT_LEVELS = [
+  { label: "Easy", value: 3, color: "#6ee7b7" },
+  { label: "Medium", value: 5, color: "#fcd34d" },
+  { label: "Hard", value: 7, color: "#f97316" },
+  { label: "Very Hard", value: 9, color: "#ef4444" },
+];
+
 export default function SessionLogger() {
   const [selectedType, setSelectedType] = useState("Run");
-  const [duration, setDuration] = useState("");
-  const [rpe, setRpe] = useState(7);
+  const [durationHours, setDurationHours] = useState("0");
+  const [durationMins, setDurationMins] = useState("");
+  const [effort, setEffort] = useState(null);
   const [notes, setNotes] = useState("");
   const [distance, setDistance] = useState("");
+  const [terrain, setTerrain] = useState("Road");
   const [exercises, setExercises] = useState("");
+  const [muscleGroups, setMuscleGroups] = useState([]);
   const [topic, setTopic] = useState("");
-  const [focusQuality, setFocusQuality] = useState(7);
+  const [focusEffort, setFocusEffort] = useState(null);
+
+  const MUSCLE_GROUPS = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core"];
+  const TERRAIN_TYPES = ["Road", "Trail", "Track", "Treadmill"];
+
+  const toggleMuscleGroup = (group) => {
+    setMuscleGroups((prev) =>
+      prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group],
+    );
+  };
 
   const handleSave = () => {
-    if (!duration) {
+    const totalMinutes =
+      (parseInt(durationHours) || 0) * 60 + (parseInt(durationMins) || 0);
+
+    if (totalMinutes === 0) {
       Alert.alert("Missing", "Please enter a duration.");
       return;
     }
 
+    const selectedEffort = selectedType === "Study" ? focusEffort : effort;
+    if (!selectedEffort) {
+      Alert.alert("Missing", "Please select an effort level.");
+      return;
+    }
+
     const today = new Date().toISOString().split("T")[0];
-    const sessionNotes =
-      selectedType === "Run"
-        ? `Distance: ${distance}km. ${notes}`
-        : selectedType === "Lift"
-          ? `Exercises: ${exercises}. ${notes}`
-          : `Topic: ${topic}. ${notes}`;
+
+    let sessionNotes = "";
+    if (selectedType === "Run") {
+      sessionNotes = `Distance: ${distance}km. Terrain: ${terrain}. ${notes}`;
+    } else if (selectedType === "Lift") {
+      sessionNotes = `Exercises: ${exercises}. Muscles: ${muscleGroups.join(", ")}. ${notes}`;
+    } else {
+      sessionNotes = `Topic: ${topic}. ${notes}`;
+    }
 
     const data = {
       date: today,
       type: selectedType,
-      duration: parseInt(duration),
+      duration: totalMinutes,
       notes: sessionNotes,
-      rpe: selectedType === "Study" ? focusQuality : rpe,
+      rpe: selectedEffort.value,
     };
 
     saveSession(data, (success) => {
       if (success) {
+        const hrs = parseInt(durationHours) || 0;
+        const mins = parseInt(durationMins) || 0;
+        const durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
         Alert.alert(
           "Session Logged ✓",
-          `${selectedType} — ${duration} mins saved.`,
+          `${selectedType} — ${durationStr} — ${selectedEffort.label}`,
         );
-        setDuration("");
+        setDurationHours("0");
+        setDurationMins("");
+        setEffort(null);
+        setFocusEffort(null);
         setNotes("");
         setDistance("");
         setExercises("");
         setTopic("");
-        setRpe(7);
-        setFocusQuality(7);
+        setMuscleGroups([]);
+        setTerrain("Road");
       } else {
         Alert.alert("Error", "Could not save. Try again.");
       }
     });
   };
 
-  const RpeSelector = ({ value, setValue, label }) => (
-    <View style={styles.rpeContainer}>
-      <View style={styles.sliderHeader}>
-        <Text style={styles.fieldLabel}>{label}</Text>
-        <Text style={styles.rpeValue}>{value}/10</Text>
-      </View>
-      <View style={styles.dotsContainer}>
-        {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+  const EffortSelector = ({ value, setValue }) => (
+    <View style={styles.effortContainer}>
+      <Text style={styles.fieldLabel}>Effort</Text>
+      <View style={styles.effortRow}>
+        {EFFORT_LEVELS.map((level) => (
           <TouchableOpacity
-            key={num}
-            onPress={() => setValue(num)}
+            key={level.label}
+            onPress={() => setValue(level)}
             style={[
-              styles.dot,
-              num <= value && styles.dotActive,
-              num === value && styles.dotSelected,
+              styles.effortButton,
+              value?.label === level.label && { backgroundColor: level.color },
             ]}
-          />
+          >
+            <Text
+              style={[
+                styles.effortText,
+                value?.label === level.label && { color: "#000000" },
+              ]}
+            >
+              {level.label}
+            </Text>
+          </TouchableOpacity>
         ))}
       </View>
     </View>
@@ -90,6 +132,7 @@ export default function SessionLogger() {
       <Text style={styles.heading}>Log Session</Text>
       <Text style={styles.date}>{new Date().toDateString()}</Text>
 
+      {/* Session Type */}
       <View style={styles.typeRow}>
         {SESSION_TYPES.map((type) => (
           <TouchableOpacity
@@ -116,18 +159,37 @@ export default function SessionLogger() {
         ))}
       </View>
 
+      {/* Duration */}
       <View style={styles.card}>
-        <Text style={styles.fieldLabel}>Duration (minutes)</Text>
-        <TextInput
-          style={styles.input}
-          value={duration}
-          onChangeText={setDuration}
-          keyboardType="numeric"
-          placeholder="45"
-          placeholderTextColor="#444"
-        />
+        <Text style={styles.fieldLabel}>Duration</Text>
+        <View style={styles.durationRow}>
+          <View style={styles.durationField}>
+            <TextInput
+              style={styles.durationInput}
+              value={durationHours}
+              onChangeText={setDurationHours}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor="#444"
+            />
+            <Text style={styles.durationUnit}>hrs</Text>
+          </View>
+          <Text style={styles.durationSeparator}>:</Text>
+          <View style={styles.durationField}>
+            <TextInput
+              style={styles.durationInput}
+              value={durationMins}
+              onChangeText={setDurationMins}
+              keyboardType="numeric"
+              placeholder="45"
+              placeholderTextColor="#444"
+            />
+            <Text style={styles.durationUnit}>min</Text>
+          </View>
+        </View>
       </View>
 
+      {/* Run Fields */}
       {selectedType === "Run" && (
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Distance (km)</Text>
@@ -139,10 +201,30 @@ export default function SessionLogger() {
             placeholder="5.0"
             placeholderTextColor="#444"
           />
-          <RpeSelector value={rpe} setValue={setRpe} label="Effort (RPE)" />
+          <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Terrain</Text>
+          <View style={styles.chipRow}>
+            {TERRAIN_TYPES.map((t) => (
+              <TouchableOpacity
+                key={t}
+                onPress={() => setTerrain(t)}
+                style={[styles.chip, terrain === t && styles.chipActive]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    terrain === t && styles.chipTextActive,
+                  ]}
+                >
+                  {t}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <EffortSelector value={effort} setValue={setEffort} />
         </View>
       )}
 
+      {/* Lift Fields */}
       {selectedType === "Lift" && (
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Exercises</Text>
@@ -155,10 +237,35 @@ export default function SessionLogger() {
             multiline
             numberOfLines={3}
           />
-          <RpeSelector value={rpe} setValue={setRpe} label="Effort (RPE)" />
+          <Text style={[styles.fieldLabel, { marginTop: 16 }]}>
+            Muscle Groups
+          </Text>
+          <View style={styles.chipRow}>
+            {MUSCLE_GROUPS.map((g) => (
+              <TouchableOpacity
+                key={g}
+                onPress={() => toggleMuscleGroup(g)}
+                style={[
+                  styles.chip,
+                  muscleGroups.includes(g) && styles.chipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    muscleGroups.includes(g) && styles.chipTextActive,
+                  ]}
+                >
+                  {g}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <EffortSelector value={effort} setValue={setEffort} />
         </View>
       )}
 
+      {/* Study Fields */}
       {selectedType === "Study" && (
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Topic / Subject</Text>
@@ -169,14 +276,11 @@ export default function SessionLogger() {
             placeholder="e.g. NLP, LLM fine-tuning..."
             placeholderTextColor="#444"
           />
-          <RpeSelector
-            value={focusQuality}
-            setValue={setFocusQuality}
-            label="Focus Quality"
-          />
+          <EffortSelector value={focusEffort} setValue={setFocusEffort} />
         </View>
       )}
 
+      {/* Notes */}
       <View style={styles.card}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>
         <TextInput
@@ -232,23 +336,51 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   input: {
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#ffffff",
     marginBottom: 8,
   },
   textArea: { fontSize: 15, color: "#ffffff", lineHeight: 22, marginBottom: 8 },
-  rpeContainer: { marginTop: 12 },
-  sliderHeader: {
+  durationRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
+    alignItems: "center",
+    gap: 8,
   },
-  rpeValue: { fontSize: 15, color: "#ffffff", fontWeight: "bold" },
-  dotsContainer: { flexDirection: "row", justifyContent: "space-between" },
-  dot: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#222" },
-  dotActive: { backgroundColor: "#333" },
-  dotSelected: { backgroundColor: "#ffffff" },
+  durationField: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
+  durationInput: {
+    fontSize: 36,
+    fontWeight: "bold",
+    color: "#ffffff",
+    minWidth: 60,
+  },
+  durationUnit: { fontSize: 16, color: "#555", marginBottom: 6 },
+  durationSeparator: {
+    fontSize: 36,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
+  },
+  effortContainer: { marginTop: 16 },
+  effortRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  effortButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "#222",
+  },
+  effortText: { color: "#888", fontSize: 13, fontWeight: "600" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#222",
+  },
+  chipActive: { backgroundColor: "#ffffff" },
+  chipText: { color: "#666", fontSize: 13 },
+  chipTextActive: { color: "#000000" },
+  sleepUnit: { fontSize: 16, color: "#555" },
   saveButton: {
     backgroundColor: "#ffffff",
     borderRadius: 14,
