@@ -14,6 +14,15 @@ import { useFocusEffect } from "@react-navigation/native";
 import { askCoach } from "../ai/coach";
 import { getRecentLogs, getRecentSessions } from "../database/database";
 
+const isSunday = () => new Date().getDay() === 0;
+
+const getWeekKey = () => {
+  const d = new Date();
+  const sunday = new Date(d);
+  sunday.setDate(d.getDate() - d.getDay());
+  return sunday.toISOString().split("T")[0];
+};
+
 export default function Chat() {
   const [messages, setMessages] = useState([
     {
@@ -27,17 +36,79 @@ export default function Chat() {
   const [recentLogs, setRecentLogs] = useState([]);
   const [recentSessions, setRecentSessions] = useState([]);
   const scrollRef = useRef(null);
+  const weeklyReviewDone = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
-      getRecentLogs(14, setRecentLogs);
-      getRecentSessions(14, setRecentSessions);
+      getRecentLogs(14, (logs) => {
+        setRecentLogs(logs);
+        getRecentSessions(14, (sessions) => {
+          setRecentSessions(sessions);
+
+          // Auto weekly review on Sundays
+          if (isSunday() && !weeklyReviewDone.current) {
+            weeklyReviewDone.current = true;
+            const weekKey = getWeekKey();
+            const storageKey = `weekly_review_${weekKey}`;
+
+            // Check if already generated this week
+            const alreadyDone = global[storageKey];
+            if (!alreadyDone) {
+              global[storageKey] = true;
+              setTimeout(() => generateWeeklyReview(logs, sessions), 1000);
+            }
+          }
+        });
+      });
     }, []),
   );
 
+  const generateWeeklyReview = async (logs, sessions) => {
+    const weeklyMessage =
+      "Generate my weekly performance review. Summarize: what improved, what declined, patterns you noticed, and one key adjustment for next week. Be specific and use my actual data.";
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content:
+          "📊 **Weekly Review — " +
+          new Date().toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }) +
+          "**\n\nGenerating your weekly summary...",
+      },
+    ]);
+
+    setLoading(true);
+    try {
+      const reply = await askCoach(weeklyMessage, logs, sessions);
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: "📊 **Weekly Review**\n\n" + reply,
+        };
+        return updated;
+      });
+    } catch (error) {
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: "Could not generate weekly review. Try asking manually.",
+        };
+        return updated;
+      });
+    } finally {
+      setLoading(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
@@ -65,7 +136,7 @@ export default function Chat() {
     "How is my recovery?",
     "Should I train hard today?",
     "What patterns do you see?",
-    "Plan my week",
+    "Give me my weekly review",
   ];
 
   return (
@@ -77,6 +148,9 @@ export default function Chat() {
       <View style={styles.header}>
         <Text style={styles.heading}>AI Coach</Text>
         <View style={styles.onlineDot} />
+        {isSunday() && (
+          <Text style={styles.sundayBadge}>📊 Weekly Review Day</Text>
+        )}
       </View>
 
       <ScrollView
@@ -119,9 +193,7 @@ export default function Chat() {
             <TouchableOpacity
               key={i}
               style={styles.quickPrompt}
-              onPress={() => {
-                setInput(prompt);
-              }}
+              onPress={() => setInput(prompt)}
             >
               <Text style={styles.quickPromptText}>{prompt}</Text>
             </TouchableOpacity>
@@ -172,14 +244,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#6ee7b7",
     marginLeft: 8,
   },
+  sundayBadge: {
+    marginLeft: "auto",
+    fontSize: 12,
+    color: "#fcd34d",
+    fontWeight: "600",
+  },
   messages: { flex: 1 },
   messagesContent: { padding: 16, paddingBottom: 8 },
-  bubble: {
-    maxWidth: "85%",
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 10,
-  },
+  bubble: { maxWidth: "85%", borderRadius: 18, padding: 14, marginBottom: 10 },
   userBubble: {
     backgroundColor: "#ffffff",
     alignSelf: "flex-end",
