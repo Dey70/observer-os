@@ -28,6 +28,14 @@ export const initDatabase = () => {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS weight_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL UNIQUE,
+      weight REAL NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
 };
 
 export const saveDailyLog = (data, callback) => {
@@ -86,6 +94,32 @@ export const getRecentSessions = (days, callback) => {
   try {
     const rows = db.getAllSync(
       `SELECT * FROM sessions ORDER BY date DESC LIMIT ?`,
+      [days],
+    );
+    callback(rows);
+  } catch (error) {
+    console.log(error);
+    callback([]);
+  }
+};
+
+export const saveWeight = (data, callback) => {
+  try {
+    db.runSync(
+      `INSERT OR REPLACE INTO weight_logs (date, weight) VALUES (?, ?)`,
+      [data.date, data.weight],
+    );
+    callback(true);
+  } catch (error) {
+    console.log(error);
+    callback(false);
+  }
+};
+
+export const getRecentWeights = (days, callback) => {
+  try {
+    const rows = db.getAllSync(
+      `SELECT * FROM weight_logs ORDER BY date DESC LIMIT ?`,
       [days],
     );
     callback(rows);
