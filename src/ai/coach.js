@@ -1,4 +1,4 @@
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+import { GROQ_API_KEY } from "../../secrets";
 
 const askGroq = async (messages) => {
   const response = await fetch(
